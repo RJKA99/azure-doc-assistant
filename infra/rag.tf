@@ -43,3 +43,13 @@ output "search_endpoint" {
 output "storage_account_name" {
   value = azurerm_storage_account.main.name
 }
+
+output "search_api_key" {
+  value     = azurerm_search_service.main.primary_key
+  sensitive = true
+}
+
+output "storage_connection_string" {
+  value     = azurerm_storage_account.main.primary_connection_string
+  sensitive = true
+}
