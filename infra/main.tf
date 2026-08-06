@@ -104,6 +104,11 @@ resource "azurerm_container_app" "main" {
     value = azurerm_key_vault_secret.service_api_key.value
   }
 
+  secret {
+    name  = "search-api-key"
+    value = azurerm_key_vault_secret.search_api_key.value
+  }
+
   template {
     min_replicas = 0
     max_replicas = 1
@@ -111,8 +116,8 @@ resource "azurerm_container_app" "main" {
     container {
       name   = "app"
       image  = "ghcr.io/rjka99/azure-doc-assistant:latest"
-      cpu    = 0.25
-      memory = "0.5Gi"
+      cpu    = 0.5
+      memory = "1Gi"
 
       env {
         name        = "ANTHROPIC_API_KEY"
@@ -122,6 +127,16 @@ resource "azurerm_container_app" "main" {
       env {
         name        = "SERVICE_API_KEY"
         secret_name = "service-api-key"
+      }
+
+      env {
+        name  = "AZURE_SEARCH_ENDPOINT"
+        value = "https://${azurerm_search_service.main.name}.search.windows.net"
+      }
+
+      env {
+        name        = "AZURE_SEARCH_API_KEY"
+        secret_name = "search-api-key"
       }
     }
   }
