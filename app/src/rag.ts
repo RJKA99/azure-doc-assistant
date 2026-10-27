@@ -2,7 +2,7 @@ import { pipeline, type FeatureExtractionPipeline } from "@xenova/transformers";
 import { SearchClient, AzureKeyCredential } from "@azure/search-documents";
 
 export const EMBEDDING_DIMENSIONS = 384;
-export const SEARCH_INDEX_NAME = "documents";
+export const DEFAULT_INDEX_NAME = "documents";
 
 let embedder: FeatureExtractionPipeline | null = null;
 
@@ -46,13 +46,13 @@ export function chunkText(text: string, source: string, chunkSize = 800, overlap
   return chunks;
 }
 
-export function getSearchClient(): SearchClient<DocumentChunk> {
+export function getSearchClient(indexName: string): SearchClient<DocumentChunk> {
   const endpoint = process.env.AZURE_SEARCH_ENDPOINT;
   const apiKey = process.env.AZURE_SEARCH_API_KEY;
   if (!endpoint || !apiKey) {
     throw new Error("AZURE_SEARCH_ENDPOINT and AZURE_SEARCH_API_KEY must be set");
   }
-  return new SearchClient<DocumentChunk>(endpoint, SEARCH_INDEX_NAME, new AzureKeyCredential(apiKey));
+  return new SearchClient<DocumentChunk>(endpoint, indexName, new AzureKeyCredential(apiKey));
 }
 
 export interface RetrievedChunk {
@@ -61,9 +61,13 @@ export interface RetrievedChunk {
   score: number;
 }
 
-export async function retrieveRelevantChunks(question: string, topK = 4): Promise<RetrievedChunk[]> {
+export async function retrieveRelevantChunks(
+  question: string,
+  indexName: string = DEFAULT_INDEX_NAME,
+  topK = 4
+): Promise<RetrievedChunk[]> {
   const queryVector = await embed(question);
-  const client = getSearchClient();
+  const client = getSearchClient(indexName);
 
   const results = await client.search(question, {
     vectorSearchOptions: {

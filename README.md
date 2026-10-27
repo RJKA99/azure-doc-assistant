@@ -52,3 +52,26 @@ terraform apply tfplan
 
 Requires `~/.anthropic_key` and `~/.ghcr_token` (read locally by Terraform via
 `file()`, never stored in this repository) and `az login` completed beforehand.
+
+## Ingesting a document corpus
+
+By default the service answers questions over the job-hunt-data corpus (index
+`documents`). To point it at any other folder of `.md`/`.pdf` files, ingest it
+into its own named index:
+
+```bash
+cd app
+AZURE_SEARCH_ENDPOINT=... AZURE_SEARCH_API_KEY=... \
+  npm run ingest -- --index <name> --dir <folder> [--dir <folder2> ...]
+```
+
+Each index is a separate, independent corpus — ingesting into a new `--index`
+name never mixes with existing ones. Get the env var values from
+`terraform output -raw search_endpoint` / `search_api_key` in `infra/`.
+
+## Querying a specific corpus
+
+- `GET /indexes` — lists every ingested index name
+- `POST /ask` — body `{ "question": "...", "index": "<name>" }` (`index` is
+  optional, defaults to `documents`)
+- The `ask_documents` MCP tool takes the same optional `index` argument
