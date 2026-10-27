@@ -32,7 +32,6 @@ demonstrated, this repository is the actual proof.
 
 - `app/` — the service (`src/server.ts`) and its `Dockerfile`
 - `infra/` — Terraform configuration for the Azure deployment
-- `TILANNE.md` — running status notes (Finnish)
 
 ## Running locally
 

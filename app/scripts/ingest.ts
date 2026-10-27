@@ -1,6 +1,6 @@
-import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, extname, basename } from "node:path";
+import { PDFParse } from "pdf-parse";
 import {
   SearchIndexClient,
   SearchClient,
@@ -10,17 +10,39 @@ import { BlobServiceClient } from "@azure/storage-blob";
 import { chunkText, embed, EMBEDDING_DIMENSIONS, SEARCH_INDEX_NAME } from "../src/rag.js";
 
 const SOURCE_DIRS = [
-  "/home/robinkarlsson/Desktop/job-hunt-data/cover-letters",
-  "/home/robinkarlsson/Desktop/job-hunt-data/job-descriptions",
-  "/home/robinkarlsson/Desktop/job-hunt-data/cv",
+  "/Users/robinkarlsson/Desktop/job-hunt-data/cover-letters",
+  "/Users/robinkarlsson/Desktop/job-hunt-data/job-descriptions",
+  "/Users/robinkarlsson/Desktop/job-hunt-data/cv",
 ];
 
-function extractText(filePath: string): string {
+async function extractText(filePath: string): Promise<string> {
   const ext = extname(filePath).toLowerCase();
   if (ext === ".pdf") {
-    return execFileSync("pdftotext", [filePath, "-"], { maxBuffer: 1024 * 1024 * 20 }).toString("utf-8");
+    const parser = new PDFParse({ data: readFileSync(filePath) });
+    const { text } = await parser.getText();
+    await parser.destroy();
+    return text;
   }
   return readFileSync(filePath, "utf-8");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(fn: () => Promise<T>, retries = 5, delayMs = 2000): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isThrottled = (err as { statusCode?: number }).statusCode === 503;
+      if (!isThrottled || attempt === retries) throw err;
+      console.warn(`  Rajoitettu (503), yritetään uudelleen ${delayMs}ms kuluttua...`);
+      await sleep(delayMs);
+      delayMs *= 2;
+    }
+  }
+  throw new Error("unreachable");
 }
 
 async function ensureIndex(endpoint: string, apiKey: string) {
@@ -85,7 +107,7 @@ async function main() {
 
     let text: string;
     try {
-      text = extractText(filePath);
+      text = await extractText(filePath);
     } catch (err) {
       console.warn(`  Ohitetaan (tekstin erotus epäonnistui): ${name}`, err);
       continue;
@@ -104,8 +126,10 @@ async function main() {
     }
 
     if (chunks.length > 0) {
-      await searchClient.mergeOrUploadDocuments(chunks);
+      await withRetry(() => searchClient.mergeOrUploadDocuments(chunks));
     }
+
+    await sleep(1000);
   }
 
   console.log("Valmis.");

@@ -50,8 +50,13 @@ app.post("/ask", async (req, res) => {
     return;
   }
 
-  const { answer, sources } = await answerFromDocuments(question);
-  res.json({ answer, sources: sources.map((s) => ({ source: s.source, score: s.score })) });
+  try {
+    const { answer, sources } = await answerFromDocuments(question);
+    res.json({ answer, sources: sources.map((s) => ({ source: s.source, score: s.score })) });
+  } catch (err) {
+    console.error("/ask failed:", err);
+    res.status(502).json({ error: "upstream request failed" });
+  }
 });
 
 function buildMcpServer(): McpServer {
@@ -89,8 +94,15 @@ app.post("/mcp", async (req, res) => {
     server.close();
   });
 
-  await server.connect(transport);
-  await transport.handleRequest(req, res, req.body);
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    console.error("/mcp failed:", err);
+    if (!res.headersSent) {
+      res.status(502).json({ error: "upstream request failed" });
+    }
+  }
 });
 
 const port = Number(process.env.PORT) || 3000;
